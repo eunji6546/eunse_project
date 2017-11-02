@@ -2,8 +2,7 @@
 
 ## Timeline 
 
--11/26 자정 
--세부계획 : ~~~ 
+-Google Calander : https://calendar.google.com/calendar/render?mode=day&date=20171102T111453&pli=1#main_7%7Cmonth 
 
 ## Versions 
 
