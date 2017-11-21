@@ -3,6 +3,7 @@ package com.example.arent.opencv_new;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -50,6 +51,9 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
     private Mat                  mSpectrum;
     private Size                 SPECTRUM_SIZE;
     private Scalar               CONTOUR_COLOR;
+
+    //@@
+    private ArrayList<MatOfPoint>    mTrace = new ArrayList<MatOfPoint>();
 
     private CameraBridgeViewBase mOpenCvCameraView;
     private Button mButton;
@@ -298,7 +302,12 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
             List<MatOfPoint> contours = mDetector.getContours();
             Log.e(TAG, "Contours count: " + contours.size());
             //Imgproc.drawContours(mRgba, contours, -1, CONTOUR_COLOR, 3);
-            Imgproc.fillConvexPoly(mRgba, contours.get(0), CONTOUR_COLOR);
+
+            mTrace.add(contours.get(0));
+
+            for (int i = 0; i < mTrace.size(); i++)
+                Imgproc.fillConvexPoly(mRgba, mTrace.get(i), CONTOUR_COLOR);
+
             Mat colorLabel = mRgba.submat(4, 68, 4, 68);
             colorLabel.setTo(mBlobColorRgba);
 
