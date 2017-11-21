@@ -1858,7 +1858,9 @@ public class Imgproc {
         List<Mat> contours_tmplm = new ArrayList<Mat>((contours != null) ? contours.size() : 0);
         Mat contours_mat = Converters.vector_vector_Point_to_Mat(contours, contours_tmplm);
         drawContours_2(image.nativeObj, contours_mat.nativeObj, contourIdx, color.val[0], color.val[1], color.val[2], color.val[3]);
-        
+        //fillConvexPoly_1(image.nativeObj, contours_mat.nativeObj, color.val[0], color.val[1], color.val[2], color.val[3]);//, 1,1); //int lineType, int shift);
+        //fillConvexPoly_1(image.nativeObj, contours_mat.nativeObj, 1,1,1,1);//, 1,1); //int lineType, int shift);
+
         return;
     }
 

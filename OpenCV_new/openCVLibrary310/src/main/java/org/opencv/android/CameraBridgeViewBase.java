@@ -455,7 +455,7 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
                 getHolder().unlockCanvasAndPost(canvas);
             }
         }
-        */
+
         if (bmpValid && mCacheBitmap != null ){
             Canvas canvas;
 
@@ -484,10 +484,10 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
                 }
                 mSurface.unlockCanvasAndPost(canvas);
             }
+            */
 
 
-            /*
-            canvas = getHolder().lockCanvas();
+            Canvas canvas = getHolder().lockCanvas();
             if (canvas != null) {
                 canvas.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
                 Log.d(TAG, "mStretch value: " + mScale);
@@ -513,9 +513,9 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
                 getHolder().unlockCanvasAndPost(canvas);
             }
 
-*/
 
-        }
+
+
     }
 
     /**

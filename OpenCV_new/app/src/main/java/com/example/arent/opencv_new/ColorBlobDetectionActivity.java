@@ -274,7 +274,11 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         Log.i(TAG, "Touched rgba color: (" + mBlobColorRgba.val[0] + ", " + mBlobColorRgba.val[1] +
                 ", " + mBlobColorRgba.val[2] + ", " + mBlobColorRgba.val[3] + ")");
 
+        // @@ TODO : set mBlobColorHsv to target color
+
         mDetector.setHsvColor(mBlobColorHsv);
+
+        //@@ TODO : Can we not just ge Spectrum but make sure that is circle shape? or using signal from blutooth
 
         Imgproc.resize(mDetector.getSpectrum(), mSpectrum, SPECTRUM_SIZE);
 
@@ -293,8 +297,8 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
             mDetector.process(mRgba);
             List<MatOfPoint> contours = mDetector.getContours();
             Log.e(TAG, "Contours count: " + contours.size());
-            Imgproc.drawContours(mRgba, contours, -1, CONTOUR_COLOR);
-
+            //Imgproc.drawContours(mRgba, contours, -1, CONTOUR_COLOR, 3);
+            Imgproc.fillConvexPoly(mRgba, contours.get(0), CONTOUR_COLOR);
             Mat colorLabel = mRgba.submat(4, 68, 4, 68);
             colorLabel.setTo(mBlobColorRgba);
 
