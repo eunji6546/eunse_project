@@ -160,21 +160,11 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
             public void onClick(View view) {
 
                 if (isRecording ) {
-                    mVideoWriter.release();
                     isRecording = false;
                 }
 
                 else {
-                    Log.e("@@@@@@", "12121212");
-                    double maybe_fpsval = Videoio.CAP_PROP_FPS;
-                    Log.e("@@@@@@", "111111111111" + maybe_fpsval);
 
-                    Log.e("@@@@@@", "111111111111");
-                    //size = new Size((int) mOpenCvCameraView.getWidth(), (int) mOpenCvCameraView.getHeight());
-                    Log.e("@@@@@@", "22222222222"+size);
-
-                    mVideoWriter.open(path() , VideoWriter.fourcc('M', 'J', 'P', 'G'), 25.0D, size);
-                    Log.e("@@@@@@", "33333333");
                     isRecording = true;
                 }
 
@@ -227,8 +217,8 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         mBlobColorHsv = new Scalar(255);
         SPECTRUM_SIZE = new Size(200, 64);
         CONTOUR_COLOR = new Scalar(255,0,0,255);
-        mVideoWriter = new VideoWriter(path(), VideoWriter.fourcc('M', 'J', 'P', 'G'), 25.0D,
-                new Size(width, height)); //(folder_pathforfile, Videoio.CAP_FFMPEG, )
+        // mVideoWriter = new VideoWriter(path(), VideoWriter.fourcc('M','J','P','G'), 25.0D,
+        //        new Size(width, height)); //(folder_pathforfile, Videoio.CAP_FFMPEG, )
 
 
     }
@@ -294,7 +284,6 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
         mRgba = inputFrame.rgba();
 
-        size = new Size(inputFrame.getWidth(), inputFrame.getHeight());
         if (mIsColorSelected) {
             mDetector.process(mRgba);
             List<MatOfPoint> contours = mDetector.getContours();
@@ -314,15 +303,30 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         }
 
 
+        //size = new Size(inputFrame.getWidth(), inputFrame.getHeight());
+
 
         if ( isRecording) {
-            Log.e("@@@@ writer", "write start");
-            Log.e("@@@@ writer",inputFrame.getWidth() +"and" + inputFrame.getHeight());
+            int fourcc = VideoWriter.fourcc('M','J','P','G');
+            if (mVideoWriter == null){
+                mVideoWriter = new VideoWriter(recordfilepath(), fourcc, 25.0D,mRgba.size() );
+                mVideoWriter.open(recordfilepath(),fourcc, 25.0D,mRgba.size()  );
+                Log.i(TAG, "onCameraFrame: path "+ path());
 
 
-            mVideoWriter.write((Mat) inputFrame.rgba()); //@@ }
-            Log.e("@@@@ writer", "write end");
+            }
+            if (! mVideoWriter.isOpened()){
+                mVideoWriter.open(recordfilepath(),fourcc, 25.0D,mRgba.size()  );
+            }
 
+            Mat newRgba = mRgba.clone();
+            mVideoWriter.write(newRgba);
+
+        }else {
+            if (mVideoWriter != null ){
+                mVideoWriter.release();
+                //mVideoWriter = null;
+            }
         }
 
         return mRgba;
@@ -418,7 +422,7 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         ongetTime();
         File sddir =  Environment.getExternalStorageDirectory();
         File vrdir = new File(sddir, folder_name);
-        File file = new File(vrdir, showTimefile+"_.mp4");
+        File file = new File(vrdir, showTimefile+"_.avi");
         String filepath = file.getAbsolutePath();
         Log.e("debug mediarecorder", filepath);
         return filepath;
