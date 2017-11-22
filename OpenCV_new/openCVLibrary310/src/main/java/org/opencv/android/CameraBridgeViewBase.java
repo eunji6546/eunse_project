@@ -21,6 +21,7 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
+
 /**
  * This is a basic class, implementing the interaction with Camera and OpenCV library.
  * The main responsibility of it - is to control when camera can be enabled, process the frame,
@@ -49,7 +50,7 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
     protected int mPreviewFormat = RGBA;
     protected int mCameraIndex = CAMERA_ID_ANY;
     protected boolean mEnabled;
-    protected FpsMeter mFpsMeter = null;
+    public FpsMeter mFpsMeter = null; //protected
 
     // @@
     protected MediaRecorder mRecorder; 
@@ -60,6 +61,8 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
     public static final int CAMERA_ID_FRONT = 98;
     public static final int RGBA = 1;
     public static final int GRAY = 2;
+
+
 
     /* Additional function for Record */
     public void setRecorder(MediaRecorder rec){
@@ -82,17 +85,25 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
         getHolder().addCallback(this);
         mMaxWidth = MAX_UNSPECIFIED;
         mMaxHeight = MAX_UNSPECIFIED;
+        Log.e("@@@@@@CamView", "111111111111");
+
     }
 
     public CameraBridgeViewBase(Context context, AttributeSet attrs) {
         super(context, attrs);
+        Log.e("@@@@@@CamView", "22222221");
 
         int count = attrs.getAttributeCount();
         Log.d(TAG, "Attr count: " + Integer.valueOf(count));
 
         TypedArray styledAttrs = getContext().obtainStyledAttributes(attrs, R.styleable.CameraBridgeViewBase);
-        if (styledAttrs.getBoolean(R.styleable.CameraBridgeViewBase_show_fps, false))
+        if (styledAttrs.getBoolean(R.styleable.CameraBridgeViewBase_show_fps, false)) {
             enableFpsMeter();
+            Log.e("@@@@@@CamView-enableFPS", "111111111111");
+
+        }
+        Log.e("@@@@@@CamView-enableFPS", "222");
+
 
         mCameraIndex = styledAttrs.getInt(R.styleable.CameraBridgeViewBase_camera_id, -1);
 
@@ -157,7 +168,7 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
         public Mat onCameraFrame(CvCameraViewFrame inputFrame);
     };
 
-    protected class CvCameraViewListenerAdapter implements CvCameraViewListener2  {
+    public class CvCameraViewListenerAdapter implements CvCameraViewListener2  { //protected
         public CvCameraViewListenerAdapter(CvCameraViewListener oldStypeListener) {
             mOldStyleListener = oldStypeListener;
         }
@@ -209,6 +220,10 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
          * This method returns single channel gray scale Mat with frame
          */
         public Mat gray();
+        public int getWidth();
+        public int getHeight();
+
+
     };
 
     public void surfaceChanged(SurfaceHolder arg0, int arg1, int arg2, int arg3) {
@@ -406,7 +421,7 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
      * then displayed on the screen.
      * @param frame - the current frame to be delivered
      */
-    protected void deliverAndDrawFrame(CvCameraViewFrame frame) {
+    public void deliverAndDrawFrame(CvCameraViewFrame frame) { //public
         Mat modified;
 
         if (mListener != null) {

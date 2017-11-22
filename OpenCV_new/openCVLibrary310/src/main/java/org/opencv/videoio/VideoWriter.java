@@ -31,11 +31,11 @@ public class VideoWriter {
 
     //javadoc: VideoWriter::VideoWriter(filename, fourcc, fps, frameSize)
     public   VideoWriter(String filename, int fourcc, double fps, Size frameSize)
-    {
-        
-        nativeObj = VideoWriter_1(filename, fourcc, fps, frameSize.width, frameSize.height);
-        
-        return;
+        {
+
+            nativeObj = VideoWriter_1(filename, fourcc, fps, frameSize.width, frameSize.height);
+
+            return;
     }
 
 

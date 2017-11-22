@@ -15,7 +15,7 @@ public class FpsMeter {
     private static final DecimalFormat FPS_FORMAT = new DecimalFormat("0.00");
 
     private int                 mFramesCouner;
-    private double              mFrequency;
+    public  double              mFrequency; // private
     private long                mprevFrameTime;
     private String              mStrfps;
     Paint                       mPaint;

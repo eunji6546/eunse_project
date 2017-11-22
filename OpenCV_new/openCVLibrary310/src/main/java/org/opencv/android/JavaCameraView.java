@@ -32,14 +32,14 @@ public class JavaCameraView extends CameraBridgeViewBase implements PreviewCallb
     private static final String TAG = "JavaCameraView";
 
     private byte mBuffer[];
-    private Mat[] mFrameChain;
-    private int mChainIdx = 0;
+    public Mat[] mFrameChain; // prrivate
+    public int mChainIdx = 0; // prrivate
     private Thread mThread;
     private boolean mStopThread;
 
     public static Camera mCamera; //only private prev
-    protected JavaCameraFrame[] mCameraFrame;
-    private SurfaceTexture mSurfaceTexture;
+    public  JavaCameraFrame[] mCameraFrame; //protected
+    public SurfaceTexture mSurfaceTexture;// prrivate
 
     public static class JavaCameraSizeAccessor implements ListItemAccessor {
 
@@ -55,6 +55,7 @@ public class JavaCameraView extends CameraBridgeViewBase implements PreviewCallb
             return size.height;
         }
     }
+
 
     public JavaCameraView(Context context, int cameraId) {
         super(context, cameraId);
@@ -293,10 +294,20 @@ public class JavaCameraView extends CameraBridgeViewBase implements PreviewCallb
             mCamera.addCallbackBuffer(mBuffer);
     }
 
-    private class JavaCameraFrame implements CvCameraViewFrame {
+    private class JavaCameraFrame implements CvCameraViewFrame { //private
         @Override
         public Mat gray() {
             return mYuvFrameData.submat(0, mHeight, 0, mWidth);
+        }
+
+        @Override
+        public int getWidth() {
+            return mWidth;
+        }
+
+        @Override
+        public int getHeight() {
+            return mHeight;
         }
 
         @Override
@@ -319,11 +330,17 @@ public class JavaCameraView extends CameraBridgeViewBase implements PreviewCallb
 
         private Mat mYuvFrameData;
         private Mat mRgba;
-        private int mWidth;
-        private int mHeight;
+        public int mWidth; //private
+        public int mHeight; //private
+        public int getmWidth() {
+            return mWidth;
+        }
+        public int getmHeight() {
+            return mWidth;
+        }
     };
 
-    private class CameraWorker implements Runnable {
+    public class CameraWorker implements Runnable { //private
 
         @Override
         public void run() {

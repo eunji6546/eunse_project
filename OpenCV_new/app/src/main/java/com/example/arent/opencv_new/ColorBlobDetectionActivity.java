@@ -22,6 +22,8 @@ import org.opencv.core.Size;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.videoio.VideoWriter;
+import org.opencv.videoio.Videoio;
 
 import android.app.Activity;
 import android.media.CamcorderProfile;
@@ -60,6 +62,7 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
     public MediaRecorder mMediaRecorder;
 
 
+
     private boolean isRecording = false;
     String folder_path = Environment.getExternalStorageDirectory().getAbsolutePath();
     String folder_name = "Face Detection Signal";
@@ -68,6 +71,10 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
     String showTime = null;
     SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd HH_mm_ss");
     SimpleDateFormat sdf_fileintxt = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
+
+    // @@
+    private VideoWriter mVideoWriter;
+    private Size size;
 
 
     private void CreateSDfolder() {
@@ -132,71 +139,59 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(this);
 
+
+
         folder_pathforfile = folder_path + File.separator + folder_name
-                + File.separator + "opencv" + "_";
+                + File.separator + "hi" + "_.mp4";
+        Log.e("@@@2 filename ", folder_pathforfile);
         CreateSDfolder();
         ongetTime();
+
+        //@@
+
+        Log.e("@@@@@@", "~~~~~");
+
+        Log.e("@@@@@@", "*****");
 
         mButton = (Button) findViewById(R.id.record_button);
         mButton.setVisibility(SurfaceView.VISIBLE);
         mButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (isRecording){
-                    /*
-                    // stop recording adn relaese camera
-                    try{
-                        mMediaRecorder.stop();
-                    }catch (RuntimeException e){
-                        Log.d("Record", "RuntimeException: stop() is called immediately after start()");
 
-                    }
-                    releaseMediaRecorder();
+                if (isRecording ) {
+                    mVideoWriter.release();
                     isRecording = false;
-                    //releaseCamera();
-                    */
-                    isRecording = false;
-                    Log.e(TAG, "button click " + isRecording);
-
-                    try {
-                        if(mMediaRecorder != null)
-                            mMediaRecorder.stop();  // stop the recording
-                        else
-                            Log.e(TAG,"onRecordSignal mediaRecorder is null");
-
-                    } catch (RuntimeException e) {
-                        // RuntimeException is thrown when stop() is called immediately after start().
-                        // In this case the output file is not properly constructed ans should be deleted.
-                        Log.d(TAG, "RuntimeException: stop() is called immediately after start()");
-                        //noinspection ResultOfMethodCallIgnored
-                    }
-                    releaseMediaRecorder();
-
-                }else {
-                    //new MediaPrepareTask().execute(null,null,null);
-
-
-                    //mMediaRecorder.start();
-                    isRecording = true;
-                    Log.e(TAG, "button click " + isRecording);
-                    if (prepareVideoRecorder()){
-                        Log.e("debug_mediarecorder", "prepareMediaRecorder in if");
-                        mOpenCvCameraView.setRecorder(mMediaRecorder);
-                        mMediaRecorder.start();
-
-                    }else {
-                        Log.e("debug_mediarecorder", "prepareMediaRecorder in else");
-                        // mediaRecorder.stop();
-                        releaseMediaRecorder();
-                    }
-
-
                 }
+
+                else {
+                    Log.e("@@@@@@", "12121212");
+                    double maybe_fpsval = Videoio.CAP_PROP_FPS;
+                    Log.e("@@@@@@", "111111111111" + maybe_fpsval);
+
+                    Log.e("@@@@@@", "111111111111");
+                    //size = new Size((int) mOpenCvCameraView.getWidth(), (int) mOpenCvCameraView.getHeight());
+                    Log.e("@@@@@@", "22222222222"+size);
+
+                    mVideoWriter.open(path() , VideoWriter.fourcc('M', 'J', 'P', 'G'), 25.0D, size);
+                    Log.e("@@@@@@", "33333333");
+                    isRecording = true;
+                }
+
             }
         });
 
     }
-
+    private String path() {
+        //        ongetTime();
+        File sddir = Environment.getExternalStorageDirectory();
+        File vrdir = new File(sddir, folder_name);
+        String mTimeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        File file = new File(vrdir, "KLI_" + mTimeStamp + ".avi");
+        String filepath = file.getAbsolutePath();
+        Log.e("debug mediarecorder", filepath);
+        return filepath;
+    }
     @Override
     public void onPause()
     {
@@ -232,6 +227,8 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         mBlobColorHsv = new Scalar(255);
         SPECTRUM_SIZE = new Size(200, 64);
         CONTOUR_COLOR = new Scalar(255,0,0,255);
+        mVideoWriter = new VideoWriter(path(), VideoWriter.fourcc('M', 'J', 'P', 'G'), 25.0D,
+                new Size(width, height)); //(folder_pathforfile, Videoio.CAP_FFMPEG, )
 
 
     }
@@ -297,6 +294,7 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
         mRgba = inputFrame.rgba();
 
+        size = new Size(inputFrame.getWidth(), inputFrame.getHeight());
         if (mIsColorSelected) {
             mDetector.process(mRgba);
             List<MatOfPoint> contours = mDetector.getContours();
@@ -313,6 +311,18 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
             Mat spectrumLabel = mRgba.submat(4, 4 + mSpectrum.rows(), 70, 70 + mSpectrum.cols());
             mSpectrum.copyTo(spectrumLabel);
+        }
+
+
+
+        if ( isRecording) {
+            Log.e("@@@@ writer", "write start");
+            Log.e("@@@@ writer",inputFrame.getWidth() +"and" + inputFrame.getHeight());
+
+
+            mVideoWriter.write((Mat) inputFrame.rgba()); //@@ }
+            Log.e("@@@@ writer", "write end");
+
         }
 
         return mRgba;
