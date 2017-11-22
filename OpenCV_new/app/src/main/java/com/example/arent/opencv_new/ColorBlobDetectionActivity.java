@@ -74,33 +74,9 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
     // @@
     private VideoWriter mVideoWriter;
-    private Size size;
 
 
-    private void CreateSDfolder() {
-        String filefolderpath = folder_path + File.separator +  folder_name;
-        File dir = new File(filefolderpath);
-        if (!dir.exists()){
-            Log.e("folder", "not exist");
-            try{
-                //dir.createNewFile(true);
-                dir.mkdir();
-                Log.e("folder", "creat exist");
-            }catch(Exception e){
-                Log.e("folder", "creat not exist");
-                e.printStackTrace();
-            }
-        }
-        else{
-            Log.e("folder", "exist");
-        }
-    }
 
-    private void ongetTime() {
-        Date dt=new Date();
-        showTime=sdf_fileintxt.format(dt);
-        showTimefile =sdf.format(dt);
-    }
 
     private BaseLoaderCallback  mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -426,6 +402,30 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         String filepath = file.getAbsolutePath();
         Log.e("debug mediarecorder", filepath);
         return filepath;
+    }
+    private void CreateSDfolder() {
+        String filefolderpath = folder_path + File.separator +  folder_name;
+        File dir = new File(filefolderpath);
+        if (!dir.exists()){
+            Log.e("folder", "not exist");
+            try{
+                //dir.createNewFile(true);
+                dir.mkdir();
+                Log.e("folder", "creat exist");
+            }catch(Exception e){
+                Log.e("folder", "creat not exist");
+                e.printStackTrace();
+            }
+        }
+        else{
+            Log.e("folder", "exist");
+        }
+    }
+
+    private void ongetTime() {
+        Date dt=new Date();
+        showTime=sdf_fileintxt.format(dt);
+        showTimefile =sdf.format(dt);
     }
 
 }
