@@ -9,6 +9,7 @@ import org.opencv.android.JavaCameraView;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.ProviderNotFoundException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -23,6 +24,7 @@ import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
@@ -70,9 +72,14 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
 
     //@@
     private ArrayList<MatOfPoint>    mTrace = new ArrayList<MatOfPoint>();
+    private ArrayList<Point> mCenters = new ArrayList<>();
 
     private CameraBridgeViewBase mOpenCvCameraView;
     private Button mButton;
+    private Button mZoomButton;
+    private Button mColorChanger;
+    private float zoomrate = 1;
+    boolean zoomin = true;
     public MediaRecorder mMediaRecorder;
 
     private boolean isRecording = false;
@@ -84,9 +91,29 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
     SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd HH_mm_ss");
     SimpleDateFormat sdf_fileintxt = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
 
+
+    private int color_mode=0;
+    private int radius;
+
     // @@
     private VideoWriter mVideoWriter;
 
+    public void change_fill_color(){
+        double r , g, b, a, new_r;
+        r = CONTOUR_COLOR.val[0];
+        g= CONTOUR_COLOR.val[1];
+        b =CONTOUR_COLOR.val[2];
+        a = CONTOUR_COLOR.val[3];
+        Log.e(TAG, "@@@@@@@@@@@@" + r);
+
+        color_mode = color_mode %3;
+        if(color_mode == 0) r = (r + 50) %255 ;
+        if(color_mode == 1) g = (g + 50) %255 ;
+        if(color_mode == 2) b = (b + 50) %255 ;
+        color_mode += 1;
+        CONTOUR_COLOR = new Scalar(r, g, b, a);
+
+    }
     private BaseLoaderCallback  mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
         public void onManagerConnected(int status) {
@@ -124,11 +151,6 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
 
         setContentView(R.layout.color_blob_detection_surface_view);
 
-
-
-        // Example of a call to a native method
-        TextView tv = (TextView) findViewById(R.id.sample_text);
-
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.color_blob_detection_activity_surface_view);
         mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(this);
@@ -164,8 +186,41 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
 
             }
         });
+        mColorChanger = (Button) findViewById(R.id.button4);
+        mColorChanger.setVisibility(SurfaceView.VISIBLE);
+        mColorChanger.setOnClickListener(new View.OnClickListener() {
+                                             @Override
+                                             public void onClick(View view) {
+                                                 //CONTOUR_COLOR = new Scalar(255,255,0,255);
+                                                 change_fill_color();
+                                             }
+                                         }
+
+        );
+
+        mZoomButton = (Button) findViewById(R.id.zoom_button);
+        mZoomButton.setVisibility(SurfaceView.VISIBLE);
+        mZoomButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+
+                Log.e("zoom clicked", "zoomrate"+zoomrate +"zoom"+zoomin);
+                if (zoomin) {
+                    if ((1.0 >= zoomrate) && (zoomrate > 0.1)) {
+                        zoomrate -= 0.1;
+                    }else {
+                        zoomin = false;
+                    }
+
+                }else {
+                    if (!(zoomrate >= 1)) zoomrate += 0.1;
+                    else zoomin = true;
+                }
+            }
+        });
 
     }
+
 
     @Override
     public void onPause()
@@ -269,16 +324,44 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
         mRgba = inputFrame.rgba();
 
+
+        Size orig = mRgba.size();
+        Log.e("zoomOnFrame", "FROM "+orig);
+        int offx = (int)( 0.5 * (1.0-zoomrate) * orig.width);
+        int offy = (int) (0.5 * (1.0-zoomrate) * orig.height);
+
+        // crop the part, you want to zoom into:
+        Mat cropped = mRgba.submat(offy,(int) orig.height-offy, offx, (int)orig.width-offx);
+        // resize to original:
+        Imgproc.resize(cropped, cropped, orig);
+        Log.e("zoomOnFrame","To "+cropped.size() );
+
+        mRgba = cropped;
+
         if (mIsColorSelected) {
+
+            //for (int i = 0; i < mTrace.size(); i++)
+            //   Imgproc.fillConvexPoly(mRgba, mTrace.get(i), CONTOUR_COLOR);
             mDetector.process(mRgba);
             List<MatOfPoint> contours = mDetector.getContours();
             Log.e(TAG, "Contours count: " + contours.size());
             //Imgproc.drawContours(mRgba, contours, -1, CONTOUR_COLOR, 3);
 
-            mTrace.add(contours.get(0));
+            List<Point> this_mat =contours.get(0).toList();
+            double sum_x=0;
+            double sum_y = 0;
+            for(int i=0; i<this_mat.size(); i++){
+                sum_x = sum_x + this_mat.get(i).x;
+                sum_y = sum_y + this_mat.get(i).y;
+            }
+            Point center = new Point(sum_x/this_mat.size(), sum_y/this_mat.size());
+            mCenters.add(center);
 
-            for (int i = 0; i < mTrace.size(); i++)
-                Imgproc.fillConvexPoly(mRgba, mTrace.get(i), CONTOUR_COLOR);
+            for (int i=0; i<mTrace.size(); i++){
+                Imgproc.circle(mRgba, mCenters.get(i)  ,40,CONTOUR_COLOR, -1);
+            }
+
+            mTrace.add(contours.get(0));
 
             Mat colorLabel = mRgba.submat(4, 68, 4, 68);
             colorLabel.setTo(mBlobColorRgba);
@@ -311,6 +394,7 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
                 //mVideoWriter = null;
             }
         }
+
 
         return mRgba;
     }

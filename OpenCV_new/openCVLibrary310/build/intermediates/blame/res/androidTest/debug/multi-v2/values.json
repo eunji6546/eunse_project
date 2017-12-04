@@ -1,7 +1,11 @@
 {
     "logs": [
         {
-            "outputFile": "/Users/arent/AndroidStudioProjects/OpenCV_new/openCVLibrary310/build/intermediates/incremental/mergeDebugAndroidTestResources/merged.dir/values/values.xml",
+            "outputFile": "C:\\Users\\Seyeon\\lgsmartthinQ\\eunse_project\\OpenCV_new\\openCVLibrary310\\build\\intermediates\\incremental\\mergeDebugAndroidTestResources\\merged.dir\\values\\values.xml",
+            "map": []
+        },
+        {
+            "outputFile": "C:\\Users\\arent\\AndroidStudioProjects\\OpenCV_new\\openCVLibrary310\\build\\intermediates\\incremental\\mergeDebugAndroidTestResources\\merged.dir\\values\\values.xml",
             "map": []
         }
     ]
