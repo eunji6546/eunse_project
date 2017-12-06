@@ -56,7 +56,7 @@ public class DeviceScanActivity extends ListActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.e(TAG,"onCreate" );
+        //Log.e(TAG,"onCreate" );
 
         getActionBar().setTitle(R.string.title_devices);
         mHandler = new Handler();
@@ -84,7 +84,7 @@ public class DeviceScanActivity extends ListActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        Log.e(TAG,"onCreateOptionsMenu" );
+        //Log.e(TAG,"onCreateOptionsMenu" );
 
         getMenuInflater().inflate(R.menu.main, menu);
         if (!mScanning) {
@@ -102,7 +102,7 @@ public class DeviceScanActivity extends ListActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        Log.e(TAG,"onOptionsItemSelected" );
+        //Log.e(TAG,"onOptionsItemSelected" );
 
         switch (item.getItemId()) {
             case R.id.menu_scan:
@@ -118,7 +118,7 @@ public class DeviceScanActivity extends ListActivity {
 
     @Override
     protected void onResume() {
-        Log.e(TAG,"onResume" );
+        //Log.e(TAG,"onResume" );
 
         super.onResume();
 
@@ -139,7 +139,7 @@ public class DeviceScanActivity extends ListActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        Log.e(TAG,"onActivityResult" );
+        //Log.e(TAG,"onActivityResult" );
 
         // User chose not to enable Bluetooth.
         if (requestCode == REQUEST_ENABLE_BT && resultCode == Activity.RESULT_CANCELED) {
@@ -151,7 +151,7 @@ public class DeviceScanActivity extends ListActivity {
 
     @Override
     protected void onPause() {
-        Log.e(TAG,"onPause" );
+        //Log.e(TAG,"onPause" );
 
         super.onPause();
         scanLeDevice(false);
@@ -160,7 +160,7 @@ public class DeviceScanActivity extends ListActivity {
 
     @Override
     protected void onListItemClick(ListView l, View v, int position, long id) {
-        Log.e(TAG,"onListItemClick" );
+        //Log.e(TAG,"onListItemClick" );
 
         final BluetoothDevice device = mLeDeviceListAdapter.getDevice(position);
         if (device == null) return;
@@ -175,7 +175,7 @@ public class DeviceScanActivity extends ListActivity {
     }
 
     private void scanLeDevice(final boolean enable) {
-        Log.e(TAG,"scanLeDevice" );
+        //Log.e(TAG,"scanLeDevice" );
 
         if (enable) {
             // Stops scanning after a pre-defined scan period.
@@ -186,10 +186,10 @@ public class DeviceScanActivity extends ListActivity {
                     mBluetoothAdapter.stopLeScan(mLeScanCallback);
                     invalidateOptionsMenu();
 
-                    Toast.makeText(getApplicationContext(), "LG SmartthinQ에 연결되었습니다.", Toast.LENGTH_SHORT).show();
-                    Intent intent = new Intent(getApplicationContext(), MainActivity.class);
+                    //Toast.makeText(getApplicationContext(), "LG SmartthinQ에 연결되었습니다.", Toast.LENGTH_SHORT).show();
+                    // intent = new Intent(getApplicationContext(), MainActivity.class);
 
-                    startActivity(intent);
+                    //startActivity(intent);
 
                 }
 
@@ -215,14 +215,14 @@ public class DeviceScanActivity extends ListActivity {
 
         public LeDeviceListAdapter() {
             super();
-            Log.e(TAG,"LeDeviceListAdapter" );
+            //Log.e(TAG,"LeDeviceListAdapter" );
 
             mLeDevices = new ArrayList<BluetoothDevice>();
             mInflator = DeviceScanActivity.this.getLayoutInflater();
         }
 
         public void addDevice(BluetoothDevice device) {
-            Log.e(TAG,"LeDeviceListAdapter::addDevice" );
+            //Log.e(TAG,"LeDeviceListAdapter::addDevice" );
 
             if(!mLeDevices.contains(device)) {
                 mLeDevices.add(device);
@@ -230,41 +230,41 @@ public class DeviceScanActivity extends ListActivity {
         }
 
         public BluetoothDevice getDevice(int position) {
-            Log.e(TAG,"LeDeviceListAdapter::agetDevice" );
+            //Log.e(TAG,"LeDeviceListAdapter::agetDevice" );
 
             return mLeDevices.get(position);
         }
 
         public void clear() {
-            Log.e(TAG,"LeDeviceListAdapter::clear" );
+            //Log.e(TAG,"LeDeviceListAdapter::clear" );
 
             mLeDevices.clear();
         }
 
         @Override
         public int getCount() {
-            Log.e(TAG,"LeDeviceListAdapter::getCount" );
+            //Log.e(TAG,"LeDeviceListAdapter::getCount" );
 
             return mLeDevices.size();
         }
 
         @Override
         public Object getItem(int i) {
-            Log.e(TAG,"LeDeviceListAdapter::getItem" );
+            //Log.e(TAG,"LeDeviceListAdapter::getItem" );
 
             return mLeDevices.get(i);
         }
 
         @Override
         public long getItemId(int i) {
-            Log.e(TAG,"LeDeviceListAdapter::getItemId" );
+            //Log.e(TAG,"LeDeviceListAdapter::getItemId" );
 
             return i;
         }
 
         @Override
         public View getView(int i, View view, ViewGroup viewGroup) {
-            Log.e(TAG,"LeDeviceListAdapter::getView" );
+            //Log.e(TAG,"LeDeviceListAdapter::getView" );
 
             ViewHolder viewHolder;
             // General ListView optimization code.
@@ -299,7 +299,7 @@ public class DeviceScanActivity extends ListActivity {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            Log.e(TAG,"mLeScanCallback::onLeScan" );
+                            //Log.e(TAG,"mLeScanCallback::onLeScan" );
 
                             mLeDeviceListAdapter.addDevice(device);
                             mLeDeviceListAdapter.notifyDataSetChanged();

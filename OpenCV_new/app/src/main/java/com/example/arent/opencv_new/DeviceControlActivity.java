@@ -34,6 +34,7 @@ import android.view.View;
 import android.widget.ExpandableListView;
 import android.widget.SimpleExpandableListAdapter;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,7 +57,7 @@ public class DeviceControlActivity extends Activity {
     private String mDeviceName;
     private String mDeviceAddress;
     private ExpandableListView mGattServicesList;
-    private BluetoothLeService mBluetoothLeService;
+    private ThinQBTSensorService mBluetoothLeService;
     private ArrayList<ArrayList<BluetoothGattCharacteristic>> mGattCharacteristics =
             new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
     private boolean mConnected = false;
@@ -72,13 +73,15 @@ public class DeviceControlActivity extends Activity {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder service) {
             Log.e(TAG, "ServiceConnection:Connected");
-            mBluetoothLeService = ((BluetoothLeService.LocalBinder) service).getService();
+            //mBluetoothLeService = ((BluetoothLeService.LocalBinder) service).getService();
+            mBluetoothLeService =((ThinQBTSensorService.LocalBinder) service ).getService();
             if (!mBluetoothLeService.initialize()) {
                 Log.e(TAG, "Unable to initialize Bluetooth");
                 finish();
             }
             // Automatically connects to the device upon successful start-up initialization.
             mBluetoothLeService.connect(mDeviceAddress);
+            mBluetoothLeService.initVib(true);
         }
 
         @Override
@@ -87,6 +90,54 @@ public class DeviceControlActivity extends Activity {
         }
     };
 
+    // PARSE PACKET
+    public List<Integer> parseAccelPacket(byte[] data){
+        int id = data[0];
+        List<Integer> default_return = new ArrayList<Integer>();
+
+        switch(id) {
+            case 152:               // Acceleration
+                int acc_x = -1;
+                int acc_y = -1 ;
+                int acc_z = -1 ;
+                for(int i = 1; i < 19; i += 6) {
+                    acc_x = (data[i] << 8) | (data[i+1] & 0xFF);
+                    acc_y = (data[i+2] << 8) | (data[i+3] & 0XFF);
+                    acc_z = (data[i+4] << 8) | (data[i+5] & 0xFF);
+
+                    Log.i(TAG, "accX = " + acc_x);
+                    Log.i(TAG, "accY = " + acc_y);
+                    Log.i(TAG, "accZ = " + acc_z);
+                }
+                default_return.add(acc_x);
+                default_return.add(acc_y);
+                default_return.add(acc_z);
+                return default_return;
+
+
+            default:
+                break;
+        }
+        return default_return;
+
+    } // PARSE PACKET
+
+    public float parseVibPacket(byte[] data){
+        int id = data[0];
+        float i = 0;
+        switch(id) {
+            case 104:               // Vibration
+                float rms = ((data[6] << 24) | (data[5] << 16) | (data[4] << 8) | (data[3] & 0xFF)) / (float) 10.0;
+
+                Log.i(TAG, "rms = " + rms);
+                return rms;
+
+            default:
+                break;
+        }
+        return i;
+    }
+
     // Handles various events fired by the Service.
     // ACTION_GATT_CONNECTED: connected to a GATT server.
     // ACTION_GATT_DISCONNECTED: disconnected from a GATT server.
@@ -94,26 +145,54 @@ public class DeviceControlActivity extends Activity {
     // ACTION_DATA_AVAILABLE: received data from the device.  This can be a result of read
     //                        or notification operations.
     private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
+
         @Override
+
         public void onReceive(Context context, Intent intent) {
             Log.e(TAG, "BroadcastReceiver:onReceive");
 
             final String action = intent.getAction();
-            if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {
+            if (ThinQBTSensorService.ACTION_GATT_CONNECTED.equals(action)) {
                 mConnected = true;
                 updateConnectionState(R.string.connected);
                 invalidateOptionsMenu();
-            } else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
+                mBluetoothLeService.initVib(true);
+
+            } else if (ThinQBTSensorService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 mConnected = false;
                 updateConnectionState(R.string.disconnected);
                 invalidateOptionsMenu();
                 clearUI();
-            } else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
+            } else if (ThinQBTSensorService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
                 // Show all the supported services and characteristics on the user interface.
-                displayGattServices(mBluetoothLeService.getSupportedGattServices());
-            } else if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
-                displayData(intent.getStringExtra(BluetoothLeService.EXTRA_DATA));
+                //displayGattServices(mBluetoothLeService.getSupportedGattServices());
+            } else if (ThinQBTSensorService.ACTION_DATA_AVAILABLE.equals(action)) {
+                String rec_pkt = intent.getStringExtra(ThinQBTSensorService.EXTRA_DATA);
+                displayData(rec_pkt);
+
+                Log.e(TAG,"AVAIL : recieved String Extra"+ rec_pkt);
+
+
+                if (ThinQBTSensorService.ACTION_ACCEL_DATA.equals(action)){
+                    //수평측정핪
+                    //mBluetoothLeService.initAccel(true);
+
+
+                }else if (ThinQBTSensorService.ACTION_VIB_DATA.equals(action)) {
+                    //진동 측정값
+                    byte[] packet = intent.getByteArrayExtra(mBluetoothLeService.ACTION_VIB_DATA);
+
+                    float vib_val = parseVibPacket(packet);
+                    Log.e("#######", "VIB VAL : "+ Float.toString(vib_val));
+
+                }
+                else {
+                    ///Log.e("###", "ELSE CASE : " + action);
+                }
+            }else {
+                Log.e("###", "ELSE CASE : " + action);
             }
+
         }
     };
 
@@ -178,8 +257,8 @@ public class DeviceControlActivity extends Activity {
 
         getActionBar().setTitle(mDeviceName);
         getActionBar().setDisplayHomeAsUpEnabled(true);
-        Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
-        bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
+        Intent thinqBtServiceIntent = new Intent(this, ThinQBTSensorService.class);
+        bindService(thinqBtServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
     }
 
     @Override
@@ -325,10 +404,10 @@ public class DeviceControlActivity extends Activity {
     private static IntentFilter makeGattUpdateIntentFilter() {
 
         final IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(BluetoothLeService.ACTION_GATT_CONNECTED);
-        intentFilter.addAction(BluetoothLeService.ACTION_GATT_DISCONNECTED);
-        intentFilter.addAction(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED);
-        intentFilter.addAction(BluetoothLeService.ACTION_DATA_AVAILABLE);
+        intentFilter.addAction(ThinQBTSensorService.ACTION_GATT_CONNECTED);
+        intentFilter.addAction(ThinQBTSensorService.ACTION_GATT_DISCONNECTED);
+        intentFilter.addAction(ThinQBTSensorService.ACTION_GATT_SERVICES_DISCOVERED);
+        intentFilter.addAction(ThinQBTSensorService.ACTION_DATA_AVAILABLE);
         return intentFilter;
     }
 }

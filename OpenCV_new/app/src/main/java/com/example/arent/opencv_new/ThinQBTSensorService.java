@@ -27,6 +27,8 @@ import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.TaskStackBuilder;
 import android.util.Log;
 
+import com.example.arent.opencv_new.BleAttributes;
+
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
@@ -119,24 +121,27 @@ public class ThinQBTSensorService extends Service {
         public void onCharacteristicRead(BluetoothGatt gatt,
                                          BluetoothGattCharacteristic characteristic,
                                          int status) {
+            Log.e(TAG, "onChrRead by : " +characteristic.getUuid());
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+                // TODO : 여기서 만약 RX를 읽는 상황이면.. 모르겠다 ㅋㅋ
             }
+
         }
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt,
                                             BluetoothGattCharacteristic characteristic) {
-            broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
-            Log.i(TAG, "onCharacteristicChanged()");
+            broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic); // TODO : 필요한가 ??
+            Log.e(TAG, "onCharacteristicChanged by : "+characteristic.getUuid());
 
             if (characteristic.getUuid().equals(BleAttributes.WASHER_TX_CHAR_UUID)) {
-                Log.i(TAG, "Received Data :" + unsignedByteString(characteristic.getValue()));
+                Log.e(TAG, "IS TX :: Received Data :" + unsignedByteString(characteristic.getValue()));
 
                 byte packet[] = characteristic.getValue();
                 byte flag = packet[0];
 
-                Log.i(TAG, "Flag is:" + flag);
+                Log.e(TAG, "Flag is:" + flag);
                 switch (flag) {
                     case BleAttributes.FLAG_TEMP_HUMID:     //온습도
                         Intent temp_humid_intent = new Intent(ACTION_TEMP_HUMID);
@@ -166,7 +171,7 @@ public class ThinQBTSensorService extends Service {
 
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            Log.i(TAG, "onCharacteristiWrite()");
+            Log.e(TAG, "onCharacteristiWrite()");
             if(status == BluetoothGatt.GATT_SUCCESS){
                 broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
             }
@@ -174,7 +179,7 @@ public class ThinQBTSensorService extends Service {
 
         @Override
         public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-            Log.i(TAG, "onDescriptorWrite()");
+            Log.e(TAG, "onDescriptorWrite()");
             super.onDescriptorWrite(gatt, descriptor, status);
         }
     };
@@ -204,7 +209,7 @@ public class ThinQBTSensorService extends Service {
                 RxChar.setValue(value);
                 // avoid simultaneous data sync
                 boolean result = mBluetoothGatt.writeCharacteristic(RxChar);
-                Log.i(TAG, "writeAccelCharacteristic - result: " + result + " write: " + Arrays.toString(value));
+                Log.e(TAG, "writeAccelCharacteristic - result: " + result + " write: " + Arrays.toString(value));
             } else {
                 Log.e(TAG, "mCurrentGattDevice.getService(Defines.WASHER_SERVICE_UUID) == null");
             }
@@ -212,7 +217,7 @@ public class ThinQBTSensorService extends Service {
     }
 
     private void broadcastUpdate(final String action) {
-        Log.i(TAG, "broadcastUpdate()");
+        Log.e(TAG, "broadcastUpdate()");
         final Intent intent = new Intent(action);
         sendBroadcast(intent);
     }
@@ -226,6 +231,8 @@ public class ThinQBTSensorService extends Service {
             sendBroadcast(intent);
             setWasherService(mBluetoothGatt, mWasherGattService);
         } else {
+            Log.e(TAG, "broadcastUpdate value of "+characteristic.getUuid());
+
             Intent intent = new Intent(action);
             // For all other profiles, writes the data formatted in HEX.
             final byte[] data = characteristic.getValue();
