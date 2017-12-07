@@ -171,25 +171,20 @@ public class DeviceControlActivity extends Activity {
                 displayData(rec_pkt);
 
                 Log.e(TAG,"AVAIL : recieved String Extra"+ rec_pkt);
+            }else if (ThinQBTSensorService.ACTION_ACCEL_DATA.equals(action)){
+                //수평측정핪
+                //mBluetoothLeService.initAccel(true);
 
 
-                if (ThinQBTSensorService.ACTION_ACCEL_DATA.equals(action)){
-                    //수평측정핪
-                    //mBluetoothLeService.initAccel(true);
+            }else if (ThinQBTSensorService.ACTION_VIB_DATA.equals(action)) {
+                //진동 측정값
+                byte[] packet = intent.getByteArrayExtra(mBluetoothLeService.ACTION_VIB_DATA);
 
+                float vib_val = parseVibPacket(packet);
+                Log.e("#######", "VIB VAL : "+ Float.toString(vib_val));
 
-                }else if (ThinQBTSensorService.ACTION_VIB_DATA.equals(action)) {
-                    //진동 측정값
-                    byte[] packet = intent.getByteArrayExtra(mBluetoothLeService.ACTION_VIB_DATA);
-
-                    float vib_val = parseVibPacket(packet);
-                    Log.e("#######", "VIB VAL : "+ Float.toString(vib_val));
-
-                }
-                else {
-                    ///Log.e("###", "ELSE CASE : " + action);
-                }
-            }else {
+            }
+            else {
                 Log.e("###", "ELSE CASE : " + action);
             }
 
