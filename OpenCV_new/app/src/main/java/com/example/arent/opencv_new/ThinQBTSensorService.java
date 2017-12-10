@@ -27,8 +27,6 @@ import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.TaskStackBuilder;
 import android.util.Log;
 
-import com.example.arent.opencv_new.BleAttributes;
-
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
@@ -121,27 +119,38 @@ public class ThinQBTSensorService extends Service {
         public void onCharacteristicRead(BluetoothGatt gatt,
                                          BluetoothGattCharacteristic characteristic,
                                          int status) {
-            Log.e(TAG, "onChrRead by : " +characteristic.getUuid());
+            Log.e("####" + TAG + "## onCharRead (0)", "onCharacteristicRead 실행됨.");
+
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
-                // TODO : 여기서 만약 RX를 읽는 상황이면.. 모르겠다 ㅋㅋ
             }
-
         }
+
+        /*
+        public void setNotification( BluetoothGattService service, BluetoothGatt gatt) {
+            BluetoothGattCharacteristic washerTx = service.getCharacteristic(BleAttributes.WASHER_TX_CHAR_UUID);
+            if (washerTx != null) {
+                washerTx.setCharacteristicNotification(washerTX);
+            }
+        }
+        */
+
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt,
                                             BluetoothGattCharacteristic characteristic) {
-            broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic); // TODO : 필요한가 ??
-            Log.e(TAG, "onCharacteristicChanged by : "+characteristic.getUuid());
+            broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+            Log.i(TAG, "onCharacteristicChanged()");
+            Log.e("####" + TAG + "## onChaChanged (0)", "onCharacteristricChanged가 실행됨.");
 
             if (characteristic.getUuid().equals(BleAttributes.WASHER_TX_CHAR_UUID)) {
-                Log.e(TAG, "IS TX :: Received Data :" + unsignedByteString(characteristic.getValue()));
+                Log.i(TAG, "Received Data :" + unsignedByteString(characteristic.getValue()));
+                Log.e("####" + TAG + "## onChaChanged (1)", "WASHER_TX_CHAR_UUID");
 
                 byte packet[] = characteristic.getValue();
                 byte flag = packet[0];
 
-                Log.e(TAG, "Flag is:" + flag);
+                Log.i(TAG, "Flag is:" + flag);
                 switch (flag) {
                     case BleAttributes.FLAG_TEMP_HUMID:     //온습도
                         Intent temp_humid_intent = new Intent(ACTION_TEMP_HUMID);
@@ -149,16 +158,21 @@ public class ThinQBTSensorService extends Service {
                         sendBroadcast(temp_humid_intent);
                         break;
                     case BleAttributes.FLAG_DISPLACEMENT:   //진동계
+                        Log.e("####" + TAG + "## onChaChanged (2)", "FLAG_DISPLACEMENT가 진동계로 읽음.");
+
                         Intent vib_intent = new Intent(ACTION_VIB_DATA);
                         vib_intent.putExtra(ACTION_VIB_DATA, packet);
                         sendBroadcast(vib_intent);
+                        Log.e("####" + TAG + "## onChaChanged (3)", "Send Broadcast :" + ACTION_VIB_DATA);
                         break;
                     case BleAttributes.FLAG_ACCEL_XYZ:      //수평계
+                        Log.e("####" + TAG + "## onChaChanged(3)2", "Send Broadcast :" + ACTION_ACCEL_DATA);
                         Intent accel_intent = new Intent(ACTION_ACCEL_DATA);
                         accel_intent.putExtra(ACTION_ACCEL_DATA, packet);
                         sendBroadcast(accel_intent);
                         break;
                     case BleAttributes.FLAG_CLICK_BUTTON:   // 버튼
+                        Log.e("####" + TAG + "## onChaChanged (4)", "Send Broadcast :" + ACTION_BUTTON_DATA);
                         Intent btn_intent = new Intent(ACTION_BUTTON_EVENT);
                         btn_intent.putExtra(ACTION_BUTTON_DATA, packet);
                         sendBroadcast(btn_intent);
@@ -169,11 +183,15 @@ public class ThinQBTSensorService extends Service {
             }
         }
 
+
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            Log.e(TAG, "onCharacteristiWrite()");
+            Log.i(TAG, "onCharacteristiWrite()");
+            Log.e("####" + TAG + "## onChrstWrite (1)", "onCharacteristicWrite()가 실행됨.");
             if(status == BluetoothGatt.GATT_SUCCESS){
+                Log.e("####" + TAG + "## onChrstWrite (2)", "BroadCast Update(DATA_AVAILABLE, ...) 실행.");
                 broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+
             }
         }
 
@@ -188,6 +206,7 @@ public class ThinQBTSensorService extends Service {
         readCharacteristic(btChar);
     }
 
+    //setNotification
     private void setWasherService(BluetoothGatt gatt, BluetoothGattService service) {
         mWasherGattService = service;
         Log.i(TAG, "LG Preference Service is founded");
@@ -197,6 +216,26 @@ public class ThinQBTSensorService extends Service {
         BluetoothGattDescriptor descriptor = mWasherTxCharacteristic.getDescriptor(BleAttributes.CLIENT_CHARACTERISTIC_CONFIGURATION);
         descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
         gatt.writeDescriptor(descriptor);
+    }
+
+    public void writeVibCharacteristic(byte[] value){
+        Log.e("####" + TAG + "## writeVibChar (0)", "writeVibCharacteristic가 실행됨.");
+
+        if (mBluetoothGatt == null) {
+            Log.e(TAG, "mCurrentGattDevice == null");
+        } else {
+            BluetoothGattService mService = mBluetoothGatt.getService(BleAttributes.WASHER_SERVICE_UUID);
+            if (mService != null && value != null) {
+                Log.e("####" + TAG + "## writeVibChar (1)", "write to RX chr.");
+                BluetoothGattCharacteristic RxChar = mService.getCharacteristic(BleAttributes.WASHER_RX_CHAR_UUID);
+                RxChar.setValue(value);
+                // avoid simultaneous data sync
+                boolean result = mBluetoothGatt.writeCharacteristic(RxChar);
+                Log.e(TAG, "writeVibCharacteristic - result: " + result + " write: " + Arrays.toString(value));
+            } else {
+                Log.e(TAG, "mCurrentGattDevice.getService(Defines.WASHER_SERVICE_UUID) == null");
+            }
+        }
     }
 
     public void writeAccelCharacteristic(byte[] value) {
@@ -209,7 +248,7 @@ public class ThinQBTSensorService extends Service {
                 RxChar.setValue(value);
                 // avoid simultaneous data sync
                 boolean result = mBluetoothGatt.writeCharacteristic(RxChar);
-                Log.e(TAG, "writeAccelCharacteristic - result: " + result + " write: " + Arrays.toString(value));
+                Log.i(TAG, "writeAccelCharacteristic - result: " + result + " write: " + Arrays.toString(value));
             } else {
                 Log.e(TAG, "mCurrentGattDevice.getService(Defines.WASHER_SERVICE_UUID) == null");
             }
@@ -226,19 +265,20 @@ public class ThinQBTSensorService extends Service {
                                  final BluetoothGattCharacteristic characteristic) {
         if (BleAttributes.BATTERY_LEVEL_CHARACTERISTIC_UUID.equals(characteristic.getUuid())) {
             Intent intent = new Intent(ACTION_BATTERY_DATA);
+            //Log.e("######SEYEON _ HERE")
+            Log.e("####" + TAG + "## brdcstUpdate (1)", "BroadCast Update IF");
             intent.putExtra(BATTERY_DATA, characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0));
             Log.i(TAG, "Battery read: " + characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0));
             sendBroadcast(intent);
             setWasherService(mBluetoothGatt, mWasherGattService);
         } else {
-            Log.e(TAG, "broadcastUpdate value of "+characteristic.getUuid());
-
+            Log.e("####" + TAG + "## brdcstUpdate (2)", "BroadCast Update ELSE ::" + characteristic.getUuid());
             Intent intent = new Intent(action);
             // For all other profiles, writes the data formatted in HEX.
             final byte[] data = characteristic.getValue();
             if (data != null && data.length > 0) {
                 final StringBuilder stringBuilder = new StringBuilder(data.length);
-                for(byte byteChar : data)
+                for (byte byteChar : data)
                     stringBuilder.append(String.format("%02X ", byteChar));
                 intent.putExtra(EXTRA_DATA, new String(data) + "\n" + stringBuilder.toString());
             }
@@ -372,7 +412,7 @@ public class ThinQBTSensorService extends Service {
      * @param characteristic The characteristic to read from.
      */
     public void readCharacteristic(BluetoothGattCharacteristic characteristic) {
-        Log.i(TAG, "readCharacteristic");
+        Log.e(TAG, "readCharacteristic");
         if (mBluetoothAdapter == null || mBluetoothGatt == null) {
             Log.w(TAG, "BluetoothAdapter not initialized");
             return;
@@ -421,20 +461,23 @@ public class ThinQBTSensorService extends Service {
      * @param on
      */
     public void initVib(boolean on) {
+        Log.e("####" + TAG + "## initVib (0)", "initVib 실행됨.");
+
         byte[] packet = new byte[20];
 
         // init the WasherM
         packet[0] = BleAttributes.FLAG_STATE_CONFIG;
         packet[1] = 4;
         packet[2] = (byte)(on ? 1 : 0); // on/off
-        writeAccelCharacteristic(packet);
+        //writeAccelCharacteristic(packet);
+        writeVibCharacteristic(packet);
 
         new Handler().postDelayed(() ->{
             Log.d(TAG,"Displacement Data : 0x01");
             packet[0] = BleAttributes.FLAG_GENERAL_CONFIG;
             packet[1] = 1;
             packet[2] = 1;
-            writeAccelCharacteristic(packet);
+            writeVibCharacteristic(packet);
         }, 500);
     }
 
@@ -443,6 +486,7 @@ public class ThinQBTSensorService extends Service {
      * @param on
      */
     public void initAccel(boolean on) {
+        Log.e("####" + TAG + "## initAccel (0)", "initAccel 실행됨.");
         byte[] packet = new byte[20];
 
         // init the WasherM

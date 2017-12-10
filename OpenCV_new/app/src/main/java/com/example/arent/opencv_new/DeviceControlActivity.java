@@ -28,6 +28,7 @@ import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -81,7 +82,7 @@ public class DeviceControlActivity extends Activity {
             }
             // Automatically connects to the device upon successful start-up initialization.
             mBluetoothLeService.connect(mDeviceAddress);
-            mBluetoothLeService.initVib(true);
+            //mBluetoothLeService.initVib(true);
         }
 
         @Override
@@ -93,7 +94,11 @@ public class DeviceControlActivity extends Activity {
     // PARSE PACKET
     public List<Integer> parseAccelPacket(byte[] data){
         int id = data[0];
+        if (id < 0 ){
+            id = id + 256;
+        }
         List<Integer> default_return = new ArrayList<Integer>();
+        Log.e("####" + TAG + "## parseAcc", "id check = " + Integer.toString(id));
 
         switch(id) {
             case 152:               // Acceleration
@@ -113,6 +118,7 @@ public class DeviceControlActivity extends Activity {
                 default_return.add(acc_y);
                 default_return.add(acc_z);
                 return default_return;
+
 
 
             default:
@@ -146,17 +152,30 @@ public class DeviceControlActivity extends Activity {
     //                        or notification operations.
     private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
 
-        @Override
+        private boolean isSavingVibsStart = false;
+        private boolean isSavingVibsEnd = false;
+        private List<Float> vibArray = new ArrayList<Float>();
+        private boolean mode_changed = false;
+        private String mode = "VIBMODE";
 
+        private float abs(float val ){
+            if (val<0 ) return -val;
+            else return val;
+        }
+
+        @Override
         public void onReceive(Context context, Intent intent) {
             Log.e(TAG, "BroadcastReceiver:onReceive");
 
+
             final String action = intent.getAction();
+            Log.e("####" + TAG + "## OnReceive (1)", action);
+            //mBluetoothLeService.initVib(true);
             if (ThinQBTSensorService.ACTION_GATT_CONNECTED.equals(action)) {
                 mConnected = true;
                 updateConnectionState(R.string.connected);
                 invalidateOptionsMenu();
-                mBluetoothLeService.initVib(true);
+                //mBluetoothLeService.initVib(true);
 
             } else if (ThinQBTSensorService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 mConnected = false;
@@ -166,29 +185,90 @@ public class DeviceControlActivity extends Activity {
             } else if (ThinQBTSensorService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
                 // Show all the supported services and characteristics on the user interface.
                 //displayGattServices(mBluetoothLeService.getSupportedGattServices());
-            } else if (ThinQBTSensorService.ACTION_DATA_AVAILABLE.equals(action)) {
-                String rec_pkt = intent.getStringExtra(ThinQBTSensorService.EXTRA_DATA);
-                displayData(rec_pkt);
+                //mBluetoothLeService.initVib(true);
+                //mBluetoothLeService.initVib(false);
+                //mBluetoothLeService.initVib(true);
+                Toast toast = Toast.makeText(getApplicationContext(),
+                        mDeviceName + " SERVICE DISCOVERED ", Toast.LENGTH_SHORT);
+                toast.setGravity(Gravity.CENTER, 0, 0);
+                toast.show();
+                final Intent newintent = new Intent(getApplicationContext(), MainActivity.class);
+                //final Intent intent = new Intent(this, MainActivity.class);
+                newintent.putExtra(EXTRAS_DEVICE_NAME, mDeviceName);
+                newintent.putExtra(EXTRAS_DEVICE_ADDRESS, mDeviceAddress);
+                startActivity(newintent);
 
-                Log.e(TAG,"AVAIL : recieved String Extra"+ rec_pkt);
-            }else if (ThinQBTSensorService.ACTION_ACCEL_DATA.equals(action)){
-                //수평측정핪
+            } /*
+            else if (ThinQBTSensorService.ACTION_DATA_AVAILABLE.equals(action)) {
+                //displayData(intent.getStringExtra(ThinQBTSensorService.EXTRA_DATA));
+                Log.e("####" + TAG + "## OnReceive (3)", "들어온 DATA : " + intent.getStringExtra(ThinQBTSensorService.EXTRA_DATA));
+                //Log.e("############SEYEON", "DATA AVAILABLE");
+                //ThinQBTSensorService.on
+                mBluetoothLeService.initVib(true);
                 //mBluetoothLeService.initAccel(true);
 
 
+            }else if (ThinQBTSensorService.ACTION_ACCEL_DATA.equals(action)){
+                //수평측정핪
+                //mBluetoothLeService.initAccel(true);
+                byte[] packet = intent.getByteArrayExtra(ThinQBTSensorService.ACTION_ACCEL_DATA);
+                Log.e("####" + TAG + "## OnReceive (7)", "ACCEL DATA ACCEPT" + action);
+                //Log.e("####" + TAG + "## onReceive(7)-1", "DATA PACKE FIRST " + Integer.toString(packet[0]));
+                if (packet.length != 0){
+                    List<Integer> accelList = parseAccelPacket(packet);
+                    int acc_X = accelList.get(0);
+                    int acc_Y = accelList.get(1);
+                    int acc_Z = accelList.get(2);
+                    displayData(Integer.toString(acc_X) + "\n" + Integer.toString(acc_Y) + "\n" + Integer.toString(acc_Z));
+                }
+
             }else if (ThinQBTSensorService.ACTION_VIB_DATA.equals(action)) {
+                Log.e("####" + TAG + "## OnReceive (8)", "VIB DATA ACCEPT" + action);
                 //진동 측정값
                 byte[] packet = intent.getByteArrayExtra(mBluetoothLeService.ACTION_VIB_DATA);
-
                 float vib_val = parseVibPacket(packet);
-                Log.e("#######", "VIB VAL : "+ Float.toString(vib_val));
+                vib_val = abs(vib_val);
+                Log.e("####" + TAG + "## OnReceive (9)", "VIB VAL : " + Float.toString(vib_val));
+                if (!mode_changed) {displayData(Float.toString(vib_val));}
 
+
+                if (vib_val >= 2000) {
+                    isSavingVibsStart = true;
+                }
+                if (isSavingVibsStart) {
+                    if (vib_val == 8100) {
+                        // @@ TODO : mode big vib
+                        mode_changed = true;
+                        displayData("CHANGE TO BIG VIB MODE");
+                        isSavingVibsStart = false;
+
+                    } else if (vib_val < 1800) {
+                        //  @ TODO : mode small vib
+                        vibArray = new ArrayList<Float>();
+                        // 약간의 오차 고려 TODO : mean
+                        isSavingVibsStart = false;
+                        mode_changed = true;
+                        displayData("CHANGE TO SMALL VIB MODE");
+
+                    } else {
+                        vibArray.add(vib_val);
+                    }
+                }
+
+
+
+
+
+            }else if (ThinQBTSensorService.ACTION_BUTTON_EVENT.equals(action)){
+                Log.e("####" + TAG + "## OnReceive (11)", "BUTTON CLICK!");
             }
             else {
-                Log.e("###", "ELSE CASE : " + action);
+                Log.e("####" + TAG + "## OnReceive (10)", "ELSE CASE : " + action);
             }
+            */
 
         }
+
     };
 
     // If a given GATT characteristic is selected, check for supported features.  This sample
@@ -403,6 +483,9 @@ public class DeviceControlActivity extends Activity {
         intentFilter.addAction(ThinQBTSensorService.ACTION_GATT_DISCONNECTED);
         intentFilter.addAction(ThinQBTSensorService.ACTION_GATT_SERVICES_DISCOVERED);
         intentFilter.addAction(ThinQBTSensorService.ACTION_DATA_AVAILABLE);
+        intentFilter.addAction(ThinQBTSensorService.ACTION_ACCEL_DATA);
+        intentFilter.addAction(ThinQBTSensorService.ACTION_VIB_DATA);
+        intentFilter.addAction(ThinQBTSensorService.ACTION_BUTTON_EVENT);
         return intentFilter;
     }
 }

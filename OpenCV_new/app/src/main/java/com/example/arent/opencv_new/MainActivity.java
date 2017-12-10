@@ -3,6 +3,7 @@ package com.example.arent.opencv_new;
 import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.widget.TextView;
 
 import org.opencv.android.JavaCameraView;
@@ -50,6 +51,29 @@ import android.view.WindowManager;
 import android.view.View.OnTouchListener;
 import android.view.SurfaceView;
 import android.widget.Button;
+import android.app.Activity;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattService;
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.ServiceConnection;
+import android.os.Bundle;
+import android.os.IBinder;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.ExpandableListView;
+import android.widget.SimpleExpandableListAdapter;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements OnTouchListener, CvCameraViewListener2{
 
@@ -75,9 +99,7 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
     private ArrayList<Point> mCenters = new ArrayList<>();
 
     private CameraBridgeViewBase mOpenCvCameraView;
-    private Button mButton;
-    private Button mZoomButton;
-    private Button mColorChanger;
+
     private float zoomrate = 1;
     boolean zoomin = true;
     public MediaRecorder mMediaRecorder;
@@ -95,8 +117,46 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
     private int color_mode=0;
     private int radius;
 
+    private String mDeviceName;
+    private String mDeviceAddress;
+
+    private ExpandableListView mGattServicesList;
+    private ThinQBTSensorService mBluetoothLeService;
+    private ArrayList<ArrayList<BluetoothGattCharacteristic>> mGattCharacteristics =
+            new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
+    private boolean mConnected = false;
+    private BluetoothGattCharacteristic mNotifyCharacteristic;
+
+    public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
+    public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
+
+    private  String ACCEL_MODE = "";
+
     // @@
     private VideoWriter mVideoWriter;
+
+    // Code to manage Service lifecycle.
+    private final ServiceConnection mServiceConnection = new ServiceConnection() {
+
+        @Override
+        public void onServiceConnected(ComponentName componentName, IBinder service) {
+            Log.e(TAG, "ServiceConnection:Connected");
+            //mBluetoothLeService = ((BluetoothLeService.LocalBinder) service).getService();
+            mBluetoothLeService =((ThinQBTSensorService.LocalBinder) service ).getService();
+            if (!mBluetoothLeService.initialize()) {
+                Log.e(TAG, "Unable to initialize Bluetooth");
+                finish();
+            }
+            // Automatically connects to the device upon successful start-up initialization.
+            mBluetoothLeService.connect(mDeviceAddress);
+            //mBluetoothLeService.initVib(true);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName componentName) {
+            mBluetoothLeService = null;
+        }
+    };
 
     public void change_fill_color(){
         double r , g, b, a, new_r;
@@ -107,13 +167,14 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
         Log.e(TAG, "@@@@@@@@@@@@" + r);
 
         color_mode = color_mode %3;
-        if(color_mode == 0) r = (r + 50) %255 ;
-        if(color_mode == 1) g = (g + 50) %255 ;
-        if(color_mode == 2) b = (b + 50) %255 ;
+        if(color_mode == 0) r = (r + 10) %255 ;
+        if(color_mode == 1) g = (g + 10) %255 ;
+        if(color_mode == 2) b = (b + 10) %255 ;
         color_mode += 1;
         CONTOUR_COLOR = new Scalar(r, g, b, a);
 
     }
+
     private BaseLoaderCallback  mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
         public void onManagerConnected(int status) {
@@ -133,6 +194,287 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
         }
     };
 
+
+    // Handles various events fired by the Service.
+    // ACTION_GATT_CONNECTED: connected to a GATT server.
+    // ACTION_GATT_DISCONNECTED: disconnected from a GATT server.
+    // ACTION_GATT_SERVICES_DISCOVERED: discovered GATT services.
+    // ACTION_DATA_AVAILABLE: received data from the device.  This can be a result of read
+    //                        or notification operations.
+    private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
+
+        private boolean isSavingVibsStart = false;
+        private boolean isSavingVibsEnd = false;
+        private List<Float> vibArray = new ArrayList<Float>();
+        private boolean mode_changed = false;
+        private String mode = "VIBMODE";
+
+        private int x_prev;
+        private int y_prev;
+        private int z_prev;
+        private boolean first_accel = true;
+        private boolean first_time = true;
+
+        private int exception = 0;
+
+        private float abs(float val ){
+            if (val<0 ) return -val;
+            else return val;
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.e(TAG, "BroadcastReceiver:onReceive");
+
+
+            final String action = intent.getAction();
+            Log.e("#### OnReceive (1)", action);
+            //mBluetoothLeService.initVib(true);
+            if (ThinQBTSensorService.ACTION_GATT_CONNECTED.equals(action)) {
+                mConnected = true;
+                Toast toast = Toast.makeText(getApplicationContext(),
+                        "GATT CONNECTED", Toast.LENGTH_LONG);
+                toast.setGravity(Gravity.CENTER, 0, 0);
+                toast.show();
+                //mBluetoothLeService.initVib(true);
+
+            } else if (ThinQBTSensorService.ACTION_GATT_DISCONNECTED.equals(action)) {
+                mConnected = false;
+                //updateConnectionState(R.string.disconnected);
+                //invalidateOptionsMenu();
+                //clearUI();
+                Toast toast = Toast.makeText(getApplicationContext(),
+                        "GATT DISCONNECTED", Toast.LENGTH_LONG);
+                toast.setGravity(Gravity.CENTER, 0, 0);
+                toast.show();
+            } else if (ThinQBTSensorService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
+                // Show all the supported services and characteristics on the user interface.
+                //displayGattServices(mBluetoothLeService.getSupportedGattServices());
+                //mBluetoothLeService.initVib(true);
+                //mBluetoothLeService.initAccel(false);
+                //mBluetoothLeService.initVib(false);
+                //mBluetoothLeService.initVib(true);
+
+            } else if (ThinQBTSensorService.ACTION_DATA_AVAILABLE.equals(action)) {
+                //displayData(intent.getStringExtra(ThinQBTSensorService.EXTRA_DATA));
+                Log.e("### OnReceive (3)", "들어온 DATA : " + intent.getStringExtra(ThinQBTSensorService.EXTRA_DATA));
+                //Log.e("############SEYEON", "DATA AVAILABLE");
+                //ThinQBTSensorService.on
+                //if (mode.equals("VIBMODE")) {mBluetoothLeService.initVib(true);
+                if (first_time) {
+                    mBluetoothLeService.initVib(true);
+                    first_time = false;
+                    Log.e("### OnReceive (3)", "VIB INIT");
+                }
+
+                //    Log.e("### OnReceive (3)", "VIB INIT");}
+                //else {mBluetoothLeService.initAccel(true);
+                //Log.e("### OnReceive (3)", "ACC INIT"); }
+
+            }else if (ThinQBTSensorService.ACTION_ACCEL_DATA.equals(action)){
+                //수평측정핪
+                //mBluetoothLeService.initAccel(true);
+                byte[] packet = intent.getByteArrayExtra(ThinQBTSensorService.ACTION_ACCEL_DATA);
+                Log.e("##OnReceive (7)", "ACCEL DATA ACCEPT" + action);
+                //Log.e("####" + TAG + "## onReceive(7)-1", "DATA PACKE FIRST " + Integer.toString(packet[0]));
+                if (packet.length != 0){
+
+                    List<Integer> accelList = parseAccelPacket(packet);
+                    int acc_X = accelList.get(0);
+                    int acc_Y = accelList.get(1);
+                    int acc_Z = accelList.get(2);
+                    //Toast toast = Toast.makeText(getApplicationContext(),
+                     //       "ACCEL_DATA"+Integer.toString(acc_X) + "\n" + Integer.toString(acc_Y) + "\n" + Integer.toString(acc_Z), Toast.LENGTH_SHORT);
+                    //toast.setGravity(Gravity.CENTER, 0, 0);
+                    //toast.show();
+                    //displayData(Integer.toString(acc_X) + "\n" + Integer.toString(acc_Y) + "\n" + Integer.toString(acc_Z));
+                    if (first_accel){
+                        x_prev=  acc_X;
+                        y_prev = acc_Y;
+                        z_prev = acc_Z;
+                        first_accel = false;
+                    }else {
+                        reflect_accel(acc_X -x_prev, acc_Y-y_prev, acc_Z-z_prev);
+                    }
+
+                }
+
+            }else if (ThinQBTSensorService.ACTION_VIB_DATA.equals(action)) {
+                Log.e("### OnReceive (8)", "VIB DATA ACCEPT" + action);
+                //진동 측정값
+                byte[] packet = intent.getByteArrayExtra(mBluetoothLeService.ACTION_VIB_DATA);
+                float vib_val = parseVibPacket(packet);
+                vib_val = abs(vib_val);
+                Log.e("### OnReceive (9)", "VIB VAL : " + Float.toString(vib_val));
+
+                Log.e("!!!!!!!!!!!!!!", Float.toString(vib_val));
+                /*
+                if (!mode_changed) {
+
+                    //displayData(Float.toString(vib_val));
+                    Toast toast = Toast.makeText(getApplicationContext(),
+                            "VIB_DATA "+Float.toString(vib_val), Toast.LENGTH_SHORT);
+                    toast.setGravity(Gravity.CENTER, 0, 0);
+                    toast.show();
+
+                    }
+            */
+
+                if (!isSavingVibsEnd) {
+
+                    if (vib_val >= 1200) {
+                        isSavingVibsStart = true;
+                    }
+
+                    if (isSavingVibsStart) {
+                        if (vib_val < 1000) {
+                            if (exception > 0) isSavingVibsEnd = true;
+                            else exception +=1;
+                        } else {
+                            //Log.e("!!!!!!!!!!!!!!!", Float.toString(vib_val));
+                            vibArray.add(vib_val);
+                        }
+
+                    }
+                }else {
+                    mode = "ACCELMODE";
+
+                    if (ACCEL_MODE == "") {
+                        // SAVING END ! LETS CALCUL AND DECIDE ACCEL_MODE!
+                        Log.e("!!!!!!!", vibArray.toString());
+
+                        boolean nothing = true;
+                        for (int i = 0; i < vibArray.size(); i++) {
+                            if (vibArray.get(i) >= 3000) {
+                                Log.e("!!!!!!@", "Zoom");
+                                Toast toast = Toast.makeText(getApplicationContext(),
+                                        "CHANGE TO BIG VIB MODE :: ZOOM MODE ", Toast.LENGTH_SHORT);
+                                toast.setGravity(Gravity.CENTER, 0, 0);
+                                toast.show();
+                                // stop vib
+                                mBluetoothLeService.initVib(false);
+                                mBluetoothLeService.initAccel(true);
+                                ACCEL_MODE = "ZOOM";
+                                nothing = false;
+                                break;
+                            }
+                        }
+                        if (nothing) {
+                            Toast toast = Toast.makeText(getApplicationContext(),
+                                    "CHANGE TO SMALL VIB MODE :: PEN MODE ", Toast.LENGTH_SHORT);
+                            toast.setGravity(Gravity.CENTER, 0, 0);
+                            toast.show();
+                            // stop vib
+                            mBluetoothLeService.initVib(false);
+                            mBluetoothLeService.initAccel(true);
+                            ACCEL_MODE = "PEN";
+                        }
+                    }
+                    if (first_accel) {
+                        mBluetoothLeService.initAccel(true);
+                    }
+
+                }
+
+
+            }else if (ThinQBTSensorService.ACTION_BUTTON_EVENT.equals(action)){
+                Log.e("##### OnReceive (11)", "BUTTON CLICK!");
+                if (isRecording ) {
+                    isRecording = false;
+                    mBluetoothLeService.initAccel(false);
+                    mBluetoothLeService.close();
+
+                }
+
+                else {
+
+                    isRecording = true;
+                }
+            }
+            else {
+                Log.e("###### OnReceive (10)", "ELSE CASE : " + action);
+            }
+
+        }
+
+    };
+
+    private void reflect_accel(int x, int y, int z) {
+        switch (ACCEL_MODE){
+            case "PEN":
+                Log.e("@@@@", x + ","+y+","+z);
+                if (x >= 100 || y >= 100 || z >= 100) change_fill_color();
+                break;
+            case "ZOOM":
+                if (y > 0 ) {
+                    if ((1.0 >= zoomrate) && (zoomrate > 0.1)) {
+                        zoomrate -= 0.05;
+                    }else {
+                        zoomin = false;
+                    }
+
+                }else {
+                    if (!(zoomrate >= 1)) zoomrate += 0.05;
+                    else zoomin = true;
+                }
+
+
+
+        }
+    }
+
+    // PARSE PACKET
+    public List<Integer> parseAccelPacket(byte[] data){
+        int id = data[0];
+        if (id < 0 ){
+            id = id + 256;
+        }
+        List<Integer> default_return = new ArrayList<Integer>();
+        switch(id) {
+            case 152:               // Acceleration
+                int acc_x = -1;
+                int acc_y = -1 ;
+                int acc_z = -1 ;
+                for(int i = 1; i < 19; i += 6) {
+                    acc_x = (data[i] << 8) | (data[i+1] & 0xFF);
+                    acc_y = (data[i+2] << 8) | (data[i+3] & 0XFF);
+                    acc_z = (data[i+4] << 8) | (data[i+5] & 0xFF);
+
+                    Log.i(TAG, "accX = " + acc_x);
+                    Log.i(TAG, "accY = " + acc_y);
+                    Log.i(TAG, "accZ = " + acc_z);
+                }
+                default_return.add(acc_x);
+                default_return.add(acc_y);
+                default_return.add(acc_z);
+                return default_return;
+
+
+
+            default:
+                break;
+        }
+        return default_return;
+
+    } // PARSE PACKET
+
+    public float parseVibPacket(byte[] data){
+        int id = data[0];
+        float i = 0;
+        switch(id) {
+            case 104:               // Vibration
+                float rms = ((data[6] << 24) | (data[5] << 16) | (data[4] << 8) | (data[3] & 0xFF)) / (float) 10.0;
+
+                Log.i(TAG, "rms = " + rms);
+                return rms;
+
+            default:
+                break;
+        }
+        return i;
+    }
+
+
     /**
      * A native method that is implemented by the 'native-lib' native library,
      * which is packaged with this application.
@@ -142,12 +484,14 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         Log.i(TAG, "called onCreate");
-
-
-
+        setTheme(R.style.no_title);
+        
         super.onCreate(savedInstanceState);
+
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        this.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         setContentView(R.layout.color_blob_detection_surface_view);
 
@@ -164,60 +508,12 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
         ongetTime();
 
         //@@
+        final Intent intent = getIntent();
+        mDeviceName = intent.getStringExtra(EXTRAS_DEVICE_NAME);
+        mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
 
-        Log.e("@@@@@@", "~~~~~");
-
-        Log.e("@@@@@@", "*****");
-
-        mButton = (Button) findViewById(R.id.record_button);
-        mButton.setVisibility(SurfaceView.VISIBLE);
-        mButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-
-                if (isRecording ) {
-                    isRecording = false;
-                }
-
-                else {
-
-                    isRecording = true;
-                }
-
-            }
-        });
-        mColorChanger = (Button) findViewById(R.id.button4);
-        mColorChanger.setVisibility(SurfaceView.VISIBLE);
-        mColorChanger.setOnClickListener(new View.OnClickListener() {
-                                             @Override
-                                             public void onClick(View view) {
-                                                 //CONTOUR_COLOR = new Scalar(255,255,0,255);
-                                                 change_fill_color();
-                                             }
-                                         }
-
-        );
-
-        mZoomButton = (Button) findViewById(R.id.zoom_button);
-        mZoomButton.setVisibility(SurfaceView.VISIBLE);
-        mZoomButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-
-                Log.e("zoom clicked", "zoomrate"+zoomrate +"zoom"+zoomin);
-                if (zoomin) {
-                    if ((1.0 >= zoomrate) && (zoomrate > 0.1)) {
-                        zoomrate -= 0.1;
-                    }else {
-                        zoomin = false;
-                    }
-
-                }else {
-                    if (!(zoomrate >= 1)) zoomrate += 0.1;
-                    else zoomin = true;
-                }
-            }
-        });
+        Intent thinqBtServiceIntent = new Intent(this, ThinQBTSensorService.class);
+        bindService(thinqBtServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
 
     }
 
@@ -228,6 +524,8 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
         super.onPause();
         if (mOpenCvCameraView != null)
             mOpenCvCameraView.disableView();
+        unregisterReceiver(mGattUpdateReceiver);
+
     }
 
     @Override
@@ -241,14 +539,37 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
             Log.d(TAG, "OpenCV library found inside package. Using it!");
             mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
         }
+        registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
+        if (mBluetoothLeService != null) {
+            final boolean result = mBluetoothLeService.connect(mDeviceAddress);
+            Log.d(TAG, "Connect request result=" + result);
+        }
+
     }
 
     public void onDestroy() {
         super.onDestroy();
         if (mOpenCvCameraView != null)
             mOpenCvCameraView.disableView();
-    }
 
+
+
+
+        unbindService(mServiceConnection);
+        mBluetoothLeService = null;
+    }
+    private static IntentFilter makeGattUpdateIntentFilter() {
+
+        final IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(ThinQBTSensorService.ACTION_GATT_CONNECTED);
+        intentFilter.addAction(ThinQBTSensorService.ACTION_GATT_DISCONNECTED);
+        intentFilter.addAction(ThinQBTSensorService.ACTION_GATT_SERVICES_DISCOVERED);
+        intentFilter.addAction(ThinQBTSensorService.ACTION_DATA_AVAILABLE);
+        intentFilter.addAction(ThinQBTSensorService.ACTION_ACCEL_DATA);
+        intentFilter.addAction(ThinQBTSensorService.ACTION_VIB_DATA);
+        intentFilter.addAction(ThinQBTSensorService.ACTION_BUTTON_EVENT);
+        return intentFilter;
+    }
     public boolean onTouch(View v, MotionEvent event) {
         int cols = mRgba.cols();
         int rows = mRgba.rows();
@@ -347,27 +668,30 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
             Log.e(TAG, "Contours count: " + contours.size());
             //Imgproc.drawContours(mRgba, contours, -1, CONTOUR_COLOR, 3);
 
-            List<Point> this_mat =contours.get(0).toList();
-            double sum_x=0;
-            double sum_y = 0;
-            for(int i=0; i<this_mat.size(); i++){
-                sum_x = sum_x + this_mat.get(i).x;
-                sum_y = sum_y + this_mat.get(i).y;
+            if (contours.size() >0) {
+
+                List<Point> this_mat = contours.get(0).toList();
+                double sum_x = 0;
+                double sum_y = 0;
+                for (int i = 0; i < this_mat.size(); i++) {
+                    sum_x = sum_x + this_mat.get(i).x;
+                    sum_y = sum_y + this_mat.get(i).y;
+                }
+                Point center = new Point(sum_x / this_mat.size(), sum_y / this_mat.size());
+                mCenters.add(center);
+
+                for (int i = 0; i < mTrace.size(); i++) {
+                    Imgproc.circle(mRgba, mCenters.get(i), 40, CONTOUR_COLOR, -1);
+                }
+
+                mTrace.add(contours.get(0));
+
+                Mat colorLabel = mRgba.submat(4, 68, 4, 68);
+                colorLabel.setTo(mBlobColorRgba);
+
+                Mat spectrumLabel = mRgba.submat(4, 4 + mSpectrum.rows(), 70, 70 + mSpectrum.cols());
+                mSpectrum.copyTo(spectrumLabel);
             }
-            Point center = new Point(sum_x/this_mat.size(), sum_y/this_mat.size());
-            mCenters.add(center);
-
-            for (int i=0; i<mTrace.size(); i++){
-                Imgproc.circle(mRgba, mCenters.get(i)  ,40,CONTOUR_COLOR, -1);
-            }
-
-            mTrace.add(contours.get(0));
-
-            Mat colorLabel = mRgba.submat(4, 68, 4, 68);
-            colorLabel.setTo(mBlobColorRgba);
-
-            Mat spectrumLabel = mRgba.submat(4, 4 + mSpectrum.rows(), 70, 70 + mSpectrum.cols());
-            mSpectrum.copyTo(spectrumLabel);
         }
 
 
@@ -439,4 +763,6 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
         Log.e("debug mediarecorder", filepath);
         return filepath;
     }
+
+
 }
